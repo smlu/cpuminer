@@ -103,11 +103,14 @@ struct workio_cmd {
 enum algos {
 	ALGO_SCRYPT,		/* scrypt(1024,1,1) */
 	ALGO_SHA256D,		/* SHA-256d */
+        ALGO_X11,               /* X11 */
 };
 
 static const char *algo_names[] = {
 	[ALGO_SCRYPT]		= "scrypt",
 	[ALGO_SHA256D]		= "sha256d",
+        [ALGO_X11]              =  "x11",
+
 };
 
 bool opt_debug = false;
@@ -173,6 +176,7 @@ Options:\n\
                           scrypt    scrypt(1024, 1, 1) (default)\n\
                           scrypt:N  scrypt(N, 1, 1)\n\
                           sha256d   SHA-256d\n\
+                          x11       X11\n\
   -o, --url=URL         URL of mining server\n\
   -O, --userpass=U:P    username:password pair for mining server\n\
   -u, --user=USERNAME   username for mining server\n\
@@ -396,6 +400,8 @@ static bool gbt_work_decode(const json_t *val, struct work *work)
 		goto out;
 	}
 	version = json_integer_value(tmp);
+
+        //TODO:: FIX for pos and grater versions
 	if ((version & BLOCK_VERSION_MASK) > BLOCK_VERSION_CURRENT) {
 		if (version_reduce) {
 			version = (version & ~BLOCK_VERSION_MASK) | BLOCK_VERSION_CURRENT;
@@ -1152,7 +1158,10 @@ static void *miner_thread(void *userdata)
 				break;
 			case ALGO_SHA256D:
 				max64 = 0x1fffff;
-				break;
+                                break;
+                        default:
+                            max64 = 0x1fffffLL;
+                            break;
 			}
 		}
 		if (work.data[19] + max64 > end_nonce)
@@ -1174,6 +1183,10 @@ static void *miner_thread(void *userdata)
 			rc = scanhash_sha256d(thr_id, work.data, work.target,
 			                      max_nonce, &hashes_done);
 			break;
+                case ALGO_X11:
+                    rc = scanhash_x11(thr_id, work.data, work.target, max_nonce,
+                            &hashes_done);
+                    break;
 
 		default:
 			/* should never happen */
